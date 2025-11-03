@@ -1,20 +1,21 @@
 # WISHLIST
 * API
-  - POST /api/basic_search : (s: str) -> List[DocumentMeta]
+  - POST /api/basic_search : (str) -> List[DocumentMeta]
     * Q: How does this handle multiple terms being given as the string? Project doc gives such examples, but the description of this functionality would imply that a single term is being searched for.
 
-  - POST /api/regex_search : (s: RegEx) -> List[DocumentMeta]
+  - POST /api/regex_search : (RegEx) -> List[DocumentMeta]
     * Fast version attempts to match the regex against the index table rather than against all full-texts
 
-  - GET /api/document_text/:id : (id: DocumentId) -> DocumentText
+  - GET /api/document_text/:id : (DocumentId) -> DocumentText
     * Get document text by document ID
 
 
 * Backend functionaltiy
-  - index: () -> SearchIndex
+  - index: (documents_root: Path) -> SearchIndex
     * Re-index all files
     * Store on disk so that we don't need to re-index on server restart
     * Run when documents are added or removed. Since we don't have any kind of API for this, maybe can just check on start-up if documents list is the same as what we indexed on, and re-index if not.
+    * Figure out desired API for calculating vs writing vs reading index
 
   - search: (db: DocumentDB, index: SearchIndex, t: Term) -> SearchResult
 
@@ -37,7 +38,7 @@
 
 DocumentDB = Dict[DocumentId, DocumentMeta]
 
-SearchIndex = Dict[Term, List[DocumentTerm]] # serialize to JSON
+SearchIndex = Dict[Term, Dict[DocumentId, int]] # term => document id => occurrence count; serializable to JSON
 Term = str # normalized: [a-zA-Z]
 DocumentTerm = Struct { occurrences: int, document_id: DocumentId }
 

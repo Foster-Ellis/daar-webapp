@@ -10,16 +10,18 @@ SearchIndex = Dict[Term, Dict[DocumentId, int]] # term => document id => occurre
 
 
 def _document_id_from_filename(fn: str) -> int:
-    [doc_id, _ext] = fn.split(".")
+    [doc_id, _] = fn.split(".")
     return int(doc_id)
 
 
+# TODO: Implement
 def _term_generator(f: TextIO) -> Generator[Term]:
     i = 0
     while i < 10:
         yield "hi"
 
 
+# TODO: Implement
 def _indexable(term: str) -> bool:
     return True
 
