@@ -12,10 +12,10 @@
         type="text"
         placeholder="Enter search term or regex..."
         class="border border-gray-300 px-4 py-2 rounded-md w-96 shadow-sm focus:ring-2 focus:ring-green-400 outline-none"
-        @keyup.enter="search"
+        @keyup.enter="runSearch"
       />
       <button
-        @click="search"
+        @click="runSearch"
         class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
       >
         Search
@@ -48,6 +48,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { search } from '../api/search'
+
 
 const query = ref('')
 const mode = ref('keyword')
@@ -55,35 +57,37 @@ const ranking = ref('occurrences')
 
 const router = useRouter()
 
-function search() {
+async function runSearch() {
   if (!query.value.trim()) {
-    console.warn('⚠️ Empty query — search aborted')
+    console.warn('⚠️ Empty search — aborted')
     return
   }
 
-  // Log everything clearly before routing
-  console.log('🚀 Search triggered with parameters:', {
+  console.log('🚀 Sending query from Home:', {
     s: query.value,
     m: mode.value,
     r: ranking.value,
   })
 
-  // Perform navigation with query params
-  router.push({
-    path: '/results',
-    query: {
-      s: query.value, // backend expects `s`
-      m: mode.value,
-      r: ranking.value,
-    },
-  })
+  try {
+    // Perform first backend query
+    const data = await search(query.value, mode.value, ranking.value)
+    console.log('✅ Initial query successful — got', data?.length || data?.results?.length, 'results')
 
-  // Confirm navigation fired
-  console.log('➡️ Navigating to /results with params:', {
-    s: query.value,
-    m: mode.value,
-    r: ranking.value,
-  })
+    // Navigate to results page with params + pass data along
+    router.push({
+      path: '/results',
+      query: {
+        s: query.value,
+        m: mode.value,
+        r: ranking.value,
+      },
+      state: { initialResults: data }, // pass data directly via router state
+    })
+  } catch (err) {
+    console.error('❌ Search failed:', err)
+  }
 }
 </script>
+
 
