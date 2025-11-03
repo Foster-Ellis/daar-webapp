@@ -1,39 +1,46 @@
 <template>
-  <div
-    class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-green-100 text-center p-6"
-  >
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-5xl font-extrabold text-green-800 tracking-tight mb-2">
-        📚 DAAR Book Search
-      </h1>
-      <p class="text-gray-600 text-lg">
-        Explore a digital library of over 1600+ books — search by <strong>keyword</strong> or
-        <strong>RegEx</strong>.
-      </p>
-    </div>
+  <div class="min-h-screen flex flex-col justify-center items-center bg-gray-50 text-center p-6">
+    <h1 class="text-4xl font-bold mb-4 text-green-800">📚 DAAR Book Search</h1>
+    <p class="text-gray-600 mb-6">Search by keyword or regex across all indexed documents</p>
 
-    <!-- Search Bar -->
-    <div class="flex flex-wrap justify-center gap-2">
+    <!-- Search bar -->
+    <div class="flex gap-2 mb-4">
       <input
         v-model="query"
         type="text"
-        placeholder="Enter a keyword or regex..."
-        class="border border-gray-300 focus:border-green-500 focus:ring-green-500 px-4 py-3 rounded-l-md w-80 outline-none text-gray-800 shadow-sm"
+        placeholder="Enter keyword or regex..."
+        class="border border-gray-300 px-4 py-2 rounded-md w-96 shadow-sm focus:ring-2 focus:ring-green-400 outline-none"
         @keyup.enter="search"
       />
       <button
         @click="search"
-        class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-r-md font-semibold transition-colors shadow-sm"
+        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
       >
         Search
       </button>
     </div>
 
-    <!-- Small footer / hint -->
-    <div class="mt-10 text-gray-500 text-sm">
-      <p>Try examples: <span class="font-mono">'Sargon'</span>, <span class="font-mono">'Saigon'</span>, or a regex like <span class="font-mono">'.*Empire.*'</span></p>
-      <p class="mt-2 italic">Built for the DAAR webapp assignment (Sorbonne Université)</p>
+    <!-- Search Options -->
+    <div class="flex flex-wrap justify-center gap-4 mb-6">
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Mode</label>
+        <select v-model="mode" class="border border-gray-300 rounded-md px-3 py-2">
+          <option value="keyword">Keyword</option>
+          <option value="regex">RegEx</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Ranking</label>
+        <select v-model="ranking" class="border border-gray-300 rounded-md px-3 py-2">
+          <option value="occurrences">Occurrences</option>
+          <option value="pagerank">PageRank</option>
+          <option value="closeness">Closeness</option>
+          <option value="betweenness">Betweenness</option>
+        </select>
+      </div>
+
+      
     </div>
   </div>
 </template>
@@ -43,13 +50,25 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const query = ref('')
+const mode = ref('keyword')
+const ranking = ref('occurrences')
+
 const router = useRouter()
 
+
 function search() {
-  if (query.value.trim().length === 0) return
-  router.push({ path: '/results', query: { q: query.value } })
+  if (!query.value.trim()) return
+  router.push({
+    path: '/results',
+    query: {
+      q: query.value,
+      mode: mode.value,
+      ranking: ranking.value,
+    }
+  })
 }
 </script>
+
 
 
 
