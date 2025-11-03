@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { search } from '../api/search'
+import { search, type SearchPayload } from '../API/search'
 
 
 const query = ref('')
@@ -71,8 +71,17 @@ async function runSearch() {
 
   try {
     // Perform first backend query
-    const data = await search(query.value, mode.value, ranking.value)
-    console.log('✅ Initial query successful — got', data?.length || data?.results?.length, 'results')
+    const data: SearchPayload = await search(query.value, mode.value, ranking.value)
+
+    const resultCount = Array.isArray(data)
+      ? data.length
+      : Array.isArray(data.results)
+        ? data.results.length
+        : 0
+
+    console.log('✅ Initial query successful — got', resultCount, 'results')
+
+    const serialized = JSON.stringify(data)
 
     // Navigate to results page with params + pass data along
     router.push({
@@ -82,7 +91,7 @@ async function runSearch() {
         m: mode.value,
         r: ranking.value,
       },
-      state: { initialResults: data }, // pass data directly via router state
+      state: { initialResults: serialized }, // pass data directly via router state
     })
   } catch (err) {
     console.error('❌ Search failed:', err)

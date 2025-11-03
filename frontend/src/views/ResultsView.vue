@@ -59,8 +59,8 @@
         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
         <div
-          v-for="book in results"
-          :key="book.id"
+          v-for="(book, index) in results"
+          :key="book.id ?? (book.title ? index + '-' + book.title : 'result-' + index)"
           class="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
         >
           <h3 class="font-semibold text-lg text-gray-800">{{ book.title }}</h3>
@@ -80,8 +80,8 @@
       <h2 class="text-xl font-semibold mb-4">Recommended Documents</h2>
       <div class="flex flex-wrap gap-3">
         <span
-          v-for="rec in recs"
-          :key="rec.id || rec"
+          v-for="(rec, index) in recs"
+          :key="rec.id ?? (rec.title ? index + '-' + rec.title : 'rec-' + index)"
           class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm"
         >
           {{ rec.title || rec }}
@@ -94,37 +94,94 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { search, type DocumentMeta, type SearchPayload } from '../API/search'
 
 const route = useRoute()
 
 // Query parameters synced with backend spec
-const s = ref(route.query.s || '')
-const m = ref(route.query.m || 'keyword')
-const r = ref(route.query.r || 'occurrences')
+const s = ref<string>(String(route.query.s ?? ''))
+const m = ref<string>(String(route.query.m ?? 'keyword'))
+const r = ref<string>(String(route.query.r ?? 'occurrences'))
 
 // Results + Recommendations
-const results = ref<any[]>([])
-const recs = ref<any[]>([])
+const results = ref<DocumentMeta[]>([])
+const recs = ref<DocumentMeta[]>([])
 
-// Dummy placeholders (for now)
-const dummyResults = [
+// Dummy placeholders used when the backend is offline during demos
+const dummyResults: DocumentMeta[] = [
   { id: 1, title: 'The Epic of Sargon', author: 'Unknown', snippet: 'King Sargon of Akkad...' },
   { id: 2, title: 'Saigon and the Stars', author: 'Lê Nguyễn', snippet: 'A traveler in old Saigon...' },
   { id: 3, title: 'Babylon Rising', author: 'H. Wells', snippet: 'The rise and fall of empires...' },
 ]
 
-const dummyRecs = [
+const dummyRecs: DocumentMeta[] = [
   { title: 'Chronicles of Akkad' },
   { title: 'Epic Tales' },
   { title: 'Ancient Rulers' },
 ]
 
-function runSearch() {
-  if (!String(s.value).trim()) {
-  console.warn('⚠️ Empty search — aborted')
-  return
+function applySearchPayload(payload: SearchPayload | undefined | null) {
+  if (!payload) {
+    results.value = []
+    recs.value = []
+    return
   }
 
+  if (Array.isArray(payload)) {
+    results.value = payload
+    recs.value = []
+    return
+  }
+
+  results.value = Array.isArray(payload.results) ? payload.results : []
+
+  if (Array.isArray(payload.recommendations)) {
+    recs.value = payload.recommendations
+  } else if (Array.isArray(payload.recs)) {
+    recs.value = payload.recs
+  } else {
+    recs.value = []
+  }
+}
+
+function deserializeInitialResults(raw: unknown): SearchPayload | undefined {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as SearchPayload
+    } catch (error) {
+      console.warn('⚠️ Failed to parse initial results from router state:', error)
+      return undefined
+    }
+  }
+
+  if (raw && typeof raw === 'object') {
+    return raw as SearchPayload
+  }
+
+  return undefined
+}
+
+function resolveInitialResults(): SearchPayload | undefined {
+  const routeState = (route as unknown as { state?: { initialResults?: unknown } }).state
+  if (routeState?.initialResults !== undefined) {
+    return deserializeInitialResults(routeState.initialResults)
+  }
+
+  if (typeof window !== 'undefined') {
+    const historyState = window.history.state as { data?: { initialResults?: unknown } } | null
+    if (historyState?.data?.initialResults !== undefined) {
+      return deserializeInitialResults(historyState.data.initialResults)
+    }
+  }
+
+  return undefined
+}
+
+async function runSearch() {
+  if (!String(s.value).trim()) {
+    console.warn('⚠️ Empty search — aborted')
+    return
+  }
 
   console.log('🚀 Search triggered with:', {
     s: s.value,
@@ -132,22 +189,25 @@ function runSearch() {
     r: r.value,
   })
 
-  // TODO: Replace with Axios backend call later
-  // e.g.:
-  // const endpoint = m.value === 'regex' ? '/api/regex_search' : '/api/basic_search'
-  // const res = await axios.post(`http://127.0.0.1:8000${endpoint}`, { s: s.value })
-  // results.value = res.data.results || []
-  // recs.value = res.data.recommendations || []
-
-  // For now: simulate results
-  results.value = dummyResults
-  recs.value = dummyRecs
-
-  console.log('✅ Results updated with', results.value.length, 'entries')
+  try {
+    const data = await search(String(s.value), String(m.value), String(r.value))
+    applySearchPayload(data)
+    console.log('✅ Results updated with', results.value.length, 'entries from API')
+  } catch (error) {
+    console.error('❌ Search failed — falling back to demo data:', error)
+    results.value = dummyResults
+    recs.value = dummyRecs
+  }
 }
 
 onMounted(() => {
-  if (s.value) runSearch()
+  const initial = resolveInitialResults()
+  if (initial !== undefined) {
+    applySearchPayload(initial)
+    console.log('ℹ️ Hydrated results from navigation state')
+  } else if (s.value) {
+    runSearch()
+  }
 })
 </script>
 
