@@ -8,7 +8,7 @@
       <div>
         <label class="block text-sm text-gray-700 mb-1">Search Query</label>
         <input
-          v-model="query"
+          v-model="s"
           type="text"
           class="border border-gray-300 px-3 py-2 rounded-md w-72"
           placeholder="Enter keyword or RegEx..."
@@ -19,7 +19,7 @@
       <div>
         <label class="block text-sm text-gray-700 mb-1">Search Mode</label>
         <select
-          v-model="mode"
+          v-model="m"
           class="border border-gray-300 px-3 py-2 rounded-md bg-white"
         >
           <option value="keyword">Keyword</option>
@@ -31,7 +31,7 @@
       <div>
         <label class="block text-sm text-gray-700 mb-1">Ranking Method</label>
         <select
-          v-model="ranking"
+          v-model="r"
           class="border border-gray-300 px-3 py-2 rounded-md bg-white"
         >
           <option value="occurrences">By occurrences (default)</option>
@@ -41,9 +41,7 @@
         </select>
       </div>
 
-
-
-      <!-- Run -->
+      <!-- Run Search -->
       <button
         @click="runSearch"
         class="bg-green-600 text-white px-5 py-2 rounded-md hover:bg-green-700 transition"
@@ -53,28 +51,40 @@
     </div>
 
     <!-- RESULTS GRID -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div>
+      <h2 class="text-xl font-semibold text-gray-800 mb-2">Results</h2>
+
       <div
-        v-for="book in dummyResults"
-        :key="book.title"
-        class="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
+        v-if="results.length > 0"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        <h3 class="font-semibold text-lg text-gray-800">{{ book.title }}</h3>
-        <p class="text-gray-500 text-sm">{{ book.author }}</p>
-        <p class="text-gray-600 text-sm mt-2">{{ book.snippet }}</p>
+        <div
+          v-for="book in results"
+          :key="book.id"
+          class="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
+        >
+          <h3 class="font-semibold text-lg text-gray-800">{{ book.title }}</h3>
+          <p v-if="book.author" class="text-gray-500 text-sm">{{ book.author }}</p>
+          <p v-if="book.snippet" class="text-gray-600 text-sm mt-2">{{ book.snippet }}</p>
+          <p v-if="book.score" class="text-gray-400 text-xs mt-1">
+            Relevance: {{ (book.score * 100).toFixed(1) }}%
+          </p>
+        </div>
       </div>
+
+      <p v-else class="text-gray-500 italic mt-3">No results found.</p>
     </div>
 
     <!-- RECOMMENDATION SECTION -->
-    <div class="mt-8">
+    <div v-if="recs.length > 0" class="mt-8">
       <h2 class="text-xl font-semibold mb-4">Recommended Documents</h2>
       <div class="flex flex-wrap gap-3">
         <span
-          v-for="rec in dummyRecs"
-          :key="rec"
+          v-for="rec in recs"
+          :key="rec.id || rec"
           class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm"
         >
-          {{ rec }}
+          {{ rec.title || rec }}
         </span>
       </div>
     </div>
@@ -82,31 +92,62 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-// Reactive state
-const query = ref(route.query.q || '')
-const mode = ref('keyword')
-const ranking = ref('occurrences')
+// Query parameters synced with backend spec
+const s = ref(route.query.s || '')
+const m = ref(route.query.m || 'keyword')
+const r = ref(route.query.r || 'occurrences')
 
+// Results + Recommendations
+const results = ref<any[]>([])
+const recs = ref<any[]>([])
 
-// Dummy placeholders for now
-const dummyResults = ref([
-  { title: 'The Epic of Sargon', author: 'Unknown', snippet: 'King Sargon of Akkad...' },
-  { title: 'Saigon and the Stars', author: 'Lê Nguyễn', snippet: 'A traveler in old Saigon...' },
-  { title: 'Babylon Rising', author: 'H. Wells', snippet: 'The rise and fall of empires...' },
-])
-const dummyRecs = ref(['Chronicles of Akkad', 'Epic Tales', 'Ancient Rulers'])
+// Dummy placeholders (for now)
+const dummyResults = [
+  { id: 1, title: 'The Epic of Sargon', author: 'Unknown', snippet: 'King Sargon of Akkad...' },
+  { id: 2, title: 'Saigon and the Stars', author: 'Lê Nguyễn', snippet: 'A traveler in old Saigon...' },
+  { id: 3, title: 'Babylon Rising', author: 'H. Wells', snippet: 'The rise and fall of empires...' },
+]
+
+const dummyRecs = [
+  { title: 'Chronicles of Akkad' },
+  { title: 'Epic Tales' },
+  { title: 'Ancient Rulers' },
+]
 
 function runSearch() {
-  console.log('Search run with:', {
-    query: query.value,
-    mode: mode.value,
-    ranking: ranking.value,
+  if (!String(s.value).trim()) {
+  console.warn('⚠️ Empty search — aborted')
+  return
+  }
+
+
+  console.log('🚀 Search triggered with:', {
+    s: s.value,
+    m: m.value,
+    r: r.value,
   })
-  // TODO: Replace with backend call later
+
+  // TODO: Replace with Axios backend call later
+  // e.g.:
+  // const endpoint = m.value === 'regex' ? '/api/regex_search' : '/api/basic_search'
+  // const res = await axios.post(`http://127.0.0.1:8000${endpoint}`, { s: s.value })
+  // results.value = res.data.results || []
+  // recs.value = res.data.recommendations || []
+
+  // For now: simulate results
+  results.value = dummyResults
+  recs.value = dummyRecs
+
+  console.log('✅ Results updated with', results.value.length, 'entries')
 }
+
+onMounted(() => {
+  if (s.value) runSearch()
+})
 </script>
+
