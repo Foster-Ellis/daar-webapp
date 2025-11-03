@@ -1,12 +1,12 @@
 # WISHLIST
 * API
-  - POST /basic_search : (s: str) -> List[DocumentMeta]
+  - POST /api/basic_search : (s: str) -> List[DocumentMeta]
     * Q: How does this handle multiple terms being given as the string? Project doc gives such examples, but the description of this functionality would imply that a single term is being searched for.
 
-  - POST /regex_search : (s: RegEx) -> List[DocumentMeta]
+  - POST /api/regex_search : (s: RegEx) -> List[DocumentMeta]
     * Fast version attempts to match the regex against the index table rather than against all full-texts
 
-  - GET /document/:id : (id: DocumentId) -> DocumentText
+  - GET /api/document_text/:id : (id: DocumentId) -> DocumentText
     * Get document text by document ID
 
 
