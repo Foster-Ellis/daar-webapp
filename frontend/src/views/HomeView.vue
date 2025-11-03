@@ -1,14 +1,16 @@
 <template>
   <div class="min-h-screen flex flex-col justify-center items-center bg-gray-50 text-center p-6">
     <h1 class="text-4xl font-bold mb-4 text-green-800">📚 DAAR Book Search</h1>
-    <p class="text-gray-600 mb-6">Search by keyword or regex across all indexed documents</p>
+    <p class="text-gray-600 mb-6">
+      Search by keyword or regular expression across all indexed documents
+    </p>
 
     <!-- Search bar -->
     <div class="flex gap-2 mb-4">
       <input
         v-model="query"
         type="text"
-        placeholder="Enter keyword or regex..."
+        placeholder="Enter search term or regex..."
         class="border border-gray-300 px-4 py-2 rounded-md w-96 shadow-sm focus:ring-2 focus:ring-green-400 outline-none"
         @keyup.enter="search"
       />
@@ -20,7 +22,7 @@
       </button>
     </div>
 
-    <!-- Search Options -->
+    <!-- Search options -->
     <div class="flex flex-wrap justify-center gap-4 mb-6">
       <div>
         <label class="block text-gray-700 text-sm mb-1">Mode</label>
@@ -39,8 +41,6 @@
           <option value="betweenness">Betweenness</option>
         </select>
       </div>
-
-      
     </div>
   </div>
 </template>
@@ -55,23 +55,35 @@ const ranking = ref('occurrences')
 
 const router = useRouter()
 
-
 function search() {
-  if (!query.value.trim()) return
+  if (!query.value.trim()) {
+    console.warn('⚠️ Empty query — search aborted')
+    return
+  }
+
+  // Log everything clearly before routing
+  console.log('🚀 Search triggered with parameters:', {
+    s: query.value,
+    mode: mode.value,
+    ranking: ranking.value,
+  })
+
+  // Perform navigation with query params
   router.push({
     path: '/results',
     query: {
-      q: query.value,
-      mode: mode.value,
-      ranking: ranking.value,
-    }
+      s: query.value, // backend expects `s`
+      m: mode.value,
+      r: ranking.value,
+    },
+  })
+
+  // Confirm navigation fired
+  console.log('➡️ Navigating to /results with params:', {
+    s: query.value,
+    mode: mode.value,
+    ranking: ranking.value,
   })
 }
 </script>
-
-
-
-
-
-
 
