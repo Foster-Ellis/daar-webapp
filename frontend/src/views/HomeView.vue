@@ -64,8 +64,8 @@ function search() {
   // Log everything clearly before routing
   console.log('🚀 Search triggered with parameters:', {
     s: query.value,
-    mode: mode.value,
-    ranking: ranking.value,
+    m: mode.value,
+    r: ranking.value,
   })
 
   // Perform navigation with query params
@@ -81,8 +81,8 @@ function search() {
   // Confirm navigation fired
   console.log('➡️ Navigating to /results with params:', {
     s: query.value,
-    mode: mode.value,
-    ranking: ranking.value,
+    m: mode.value,
+    r: ranking.value,
   })
 }
 </script>

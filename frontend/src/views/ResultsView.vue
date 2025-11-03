@@ -41,11 +41,7 @@
         </select>
       </div>
 
-      <!-- Recommendation -->
-      <div class="flex items-center gap-2">
-        <input id="rec" type="checkbox" v-model="recommendations" />
-        <label for="rec" class="text-sm text-gray-700">Show Recommendations</label>
-      </div>
+
 
       <!-- Run -->
       <button
@@ -70,7 +66,7 @@
     </div>
 
     <!-- RECOMMENDATION SECTION -->
-    <div v-if="recommendations" class="mt-8">
+    <div class="mt-8">
       <h2 class="text-xl font-semibold mb-4">Recommended Documents</h2>
       <div class="flex flex-wrap gap-3">
         <span
@@ -95,7 +91,7 @@ const route = useRoute()
 const query = ref(route.query.q || '')
 const mode = ref('keyword')
 const ranking = ref('occurrences')
-const recommendations = ref(true)
+
 
 // Dummy placeholders for now
 const dummyResults = ref([
@@ -110,7 +106,6 @@ function runSearch() {
     query: query.value,
     mode: mode.value,
     ranking: ranking.value,
-    recommendations: recommendations.value,
   })
   // TODO: Replace with backend call later
 }
