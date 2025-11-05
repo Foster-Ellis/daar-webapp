@@ -1,4 +1,5 @@
 import os
+import re
 
 from pathlib import Path
 from typing import Dict, Generator, TextIO
@@ -14,11 +15,12 @@ def _document_id_from_filename(fn: str) -> int:
     return int(doc_id)
 
 
-# TODO: Implement
 def _term_generator(f: TextIO) -> Generator[Term]:
-    i = 0
-    while i < 10:
-        yield "hi"
+    for line in f:
+        # Normalize line by turning to lowercase, and removing any punctuation
+        formatted_line = re.sub(r'[^a-z0-9 ]', '', line.lower())
+        for word in formatted_line.split():
+            yield word
 
 
 # TODO: Implement
@@ -40,10 +42,22 @@ def index(documents_root: Path) -> SearchIndex:
     for fn in os.listdir(documents_root):
         document_id = _document_id_from_filename(fn)
 
-        with open(fn) as f:
+        with open(os.path.join(documents_root, fn)) as f:
             for term in _term_generator(f):
                 if _indexable(term):
                     _increment_term_for_document(index, term, document_id)
 
 
     return index
+
+
+if __name__ == "__main__":
+    from itertools import islice
+
+    def take(n, iterable):
+        """Return the first n items of the iterable as a list."""
+        return list(islice(iterable, n))
+
+    ind = index(Path("/Users/graham.preston/fac_src/DAAR/project3/documents"))
+    n_items = take(5, ind.items())
+    print(n_items)
