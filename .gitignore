@@ -1,0 +1,29 @@
+# === Global Ignore Rules ===
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+env/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Data
+documents/
+*.txt
+*.log
+*.tmp
+
+# Keep key metadata + index
+!documents_meta.json
+!search_index.json
+
+# Editor + OS clutter
+.vscode/
+.idea/
+.DS_Store
