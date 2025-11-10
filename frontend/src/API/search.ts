@@ -1,16 +1,55 @@
 import axios from "axios";
+import mockData from '../mock_data/fake_search.json'
 
-const API_BASE = 'http://127.0.0.1:8000/api'
+// Backend base URL (FastAPI)
+const API_BASE = 'http://127.0.0.1:8000/api' 
+
+// Toggle between backend and mock mode
+const useMock = true // set to false when backend is ready
+
+
 
 // Keyword or regex search, depending on mode
 export async function search(search_term: string, method: string, ranking: string) {
-  const endpoint = method === 'regex' ? 'regex_search' : 'basic_search'
+  console.log('📡 API call started with:', { search_term, method, ranking })
   
-  console.log(`📡 Calling ${endpoint} with:`, { search_term, method, ranking })
+  if (useMock){
+    console.log('📄 Using mock data (fake_search.json)')
 
-  const response = await axios.post(`${API_BASE}/${endpoint}`, { search_term })
-  return response.data // Expecting List[DocumentMeta]
-}
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    return mockData
+  }
+  
+  try {
+    const endpoint = method === 'regex' ? 'regex_search' : 'basic_search'
+    const response = await axios.post(`${API_BASE}/${endpoint}`, {
+      s: search_term,
+    })
+
+    console.log('✅ Received response from backend:', response.data)
+
+    return response.data // Should be in { results, recommendations } format
+  } catch (error) {
+    console.error('❌ API search error:', error)
+    throw error
+  }
+
+
+  }
+
+
+
+  
+  
+  
+
+
+
+
+
+
+
+
 
 // Retrieve full document text by id
 export async function getDocumentText(id: number) {

@@ -94,61 +94,63 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { search } from '../api/search'
 
 const route = useRoute()
+const router = useRouter()
 
-// Query parameters synced with backend spec
-const s = ref(route.query.s || '')
-const m = ref(route.query.m || 'keyword')
-const r = ref(route.query.r || 'occurrences')
+// Extract query params
+const s = ref((route.query.s as string) || '')
+const m = ref((route.query.m as string) || 'keyword')
+const r = ref((route.query.r as string) || 'occurrences')
 
-// Results + Recommendations
+// Reactive data containers
 const results = ref<any[]>([])
 const recs = ref<any[]>([])
 
-// Dummy placeholders (for now)
-const dummyResults = [
-  { id: 1, title: 'The Epic of Sargon', author: 'Unknown', snippet: 'King Sargon of Akkad...' },
-  { id: 2, title: 'Saigon and the Stars', author: 'Lê Nguyễn', snippet: 'A traveler in old Saigon...' },
-  { id: 3, title: 'Babylon Rising', author: 'H. Wells', snippet: 'The rise and fall of empires...' },
-]
+// Try to load results passed via router state
+const initialResults: any = router.options.history.state?.initialResults || null
 
-const dummyRecs = [
-  { title: 'Chronicles of Akkad' },
-  { title: 'Epic Tales' },
-  { title: 'Ancient Rulers' },
-]
 
-function runSearch() {
+async function runSearch() {
   if (!String(s.value).trim()) {
   console.warn('⚠️ Empty search — aborted')
   return
   }
 
+  console.log('🚀 Running ResultsView search:', { s: s.value, m: m.value, r: r.value })
 
-  console.log('🚀 Search triggered with:', {
-    s: s.value,
-    m: m.value,
-    r: r.value,
-  })
+  if (initialResults) {
+    console.log('📦 Using results from HomeView')
+    results.value = initialResults.results || initialResults
+    recs.value = initialResults.recommendations || []
+    return
+  }
 
-  // TODO: Replace with Axios backend call later
-  // e.g.:
-  // const endpoint = m.value === 'regex' ? '/api/regex_search' : '/api/basic_search'
-  // const res = await axios.post(`http://127.0.0.1:8000${endpoint}`, { s: s.value })
-  // results.value = res.data.results || []
-  // recs.value = res.data.recommendations || []
+  try {
+    const data = await search(s.value, m.value, r.value)
+    results.value = data.results || data
+    recs.value = data.recommendations || []
+    console.log('✅ Results fetched directly:', results.value.length, 'entries')
+  } catch (err) {
+    console.error('❌ Search failed:', err)
+  }
 
-  // For now: simulate results
-  results.value = dummyResults
-  recs.value = dummyRecs
-
-  console.log('✅ Results updated with', results.value.length, 'entries')
 }
+  
 
 onMounted(() => {
-  if (s.value) runSearch()
+  // If results were passed from HomeView, show them and skip fetching
+  if (initialResults) {
+    console.log('📦 Loaded results passed from HomeView')
+    results.value = initialResults.results || initialResults
+    recs.value = initialResults.recommendations || []
+  } else if (s.value) {
+    // If we have a query string but no results yet, fetch them
+    console.log('🔄 No state results found — fetching directly...')
+    runSearch()
+  }
 })
 </script>
 

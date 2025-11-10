@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "id": 1,
+      "title": "The Epic of Sargon",
+      "cover": "https://example.com/covers/sargon.jpg"
+    },
+    {
+      "id": 2,
+      "title": "Babylon Rising",
+      "cover": "https://example.com/covers/babylon.jpg"
+    },
+    {
+      "id": 3,
+      "title": "Chronicles of Akkad",
+      "cover": "https://example.com/covers/akkad.jpg"
+    },
+    {
+      "id": 4,
+      "title": "Epic Tales",
+      "cover": "https://example.com/covers/epic.jpg"
+    },
+    {
+      "id": 5,
+      "title": "Ancient Rulers",
+      "cover": "https://example.com/covers/rulers.jpg"
+    }
+  ]
+}
