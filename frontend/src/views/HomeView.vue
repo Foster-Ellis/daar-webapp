@@ -64,9 +64,9 @@ async function runSearch() {
   }
 
   console.log('🚀 Sending query from Home:', {
-    s: query.value,
-    m: mode.value,
-    r: ranking.value,
+    Search_term: query.value,
+    method: mode.value,
+    ranking: ranking.value,
   })
 
   try {

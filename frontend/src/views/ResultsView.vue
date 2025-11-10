@@ -12,6 +12,7 @@
           type="text"
           class="border border-gray-300 px-3 py-2 rounded-md w-72"
           placeholder="Enter keyword or RegEx..."
+          @keyup.enter="runSearch"
         />
       </div>
 
