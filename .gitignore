@@ -18,10 +18,8 @@ documents/
 *.txt
 *.log
 *.tmp
-
-# Keep key metadata + index
-!documents_meta.json
-!search_index.json
+**/search_index.json
+**/documents_meta.json
 
 # Editor + OS clutter
 .vscode/

@@ -18,6 +18,29 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.urls import include, path
 from rest_framework import routers, serializers, viewsets
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from .business_logic import execute_search, SearchType
+
+
+@api_view(["POST"])
+def search(request):
+    """
+    Perform a normal search query.
+
+    Spec:
+    - Takes JSON: {"query": string}, extra params optional and ignored if unknown
+    """
+    query = request.data["query"]
+    result = execute_search(query, SearchType.BASIC)
+    print("execute_search result:", result)
+    return Response(result)
+
+
+@api_view(["GET"])
+def get_document_text(request):
+    return Response("")
 
 
 # Serializers define the API representation.
@@ -39,5 +62,7 @@ router.register(r'users', UserViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("api/basic_search", search),
+    path("api/document_text", get_document_text),
     path('', include(router.urls)),
 ]
