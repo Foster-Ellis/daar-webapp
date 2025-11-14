@@ -1,10 +1,11 @@
 import os
 import re
+import json
 
+from enum import Enum
 from dataclasses import dataclass
 from functools import reduce
-from pathlib import Path
-from typing import Dict, Generator, TextIO
+from typing import Dict, List, Iterable, Generator, TextIO
 
 Term = str # normalized: [a-zA-Z]
 DocumentId = int
@@ -16,12 +17,21 @@ SearchIndex = Dict[Term, Dict[DocumentId, int]] # term => document id => occurre
 class DocumentMeta:
     title: str
     document_id: DocumentId
-    cover: URL
+    cover: str # URL
 
 DocumentDB = Dict[DocumentId, DocumentMeta]
 SearchScore = int
 SearchHits = Dict[DocumentId, SearchScore]
-SearchResult = List[Tuple[DocumentMeta]]
+SearchResult = List[DocumentMeta]
+
+SEARCH_INDEX_PATH = "search/search_index.json"
+DOCUMENT_DB_PATH = "webscraper/documents_meta.json"
+DOCUMENTS_ROOT = "webscraper/documents/"
+
+class SearchType(Enum):
+    BASIC = "basic"
+    REGEX = "regex"
+
 
 def _document_id_from_filename(fn: str) -> int:
     [doc_id, _] = fn.split(".")
@@ -36,7 +46,7 @@ def _term_generator(f: TextIO) -> Generator[Term]:
 
 def _str_term_generator(s: str) -> Generator[Term]:
     # Normalize line by turning to lowercase, and removing any punctuation
-    formatted_line = re.sub(r'[^a-z0-9 ]', '', line.lower())
+    formatted_line = re.sub(r'[^a-z0-9 ]', '', s.lower())
     for word in formatted_line.split():
         yield word
 
@@ -54,10 +64,11 @@ def _increment_term_for_document(index: SearchIndex, term: Term, document_id: Do
     index[term][document_id] += 1
 
 
-def index(documents_root: Path) -> SearchIndex:
+def index(documents_root: str) -> SearchIndex:
     index: SearchIndex = dict()
 
-    for fn in os.listdir(documents_root):
+    for i, fn in enumerate(os.listdir(documents_root)):
+        print("Indexing file number", i)
         document_id = _document_id_from_filename(fn)
 
         with open(os.path.join(documents_root, fn)) as f:
@@ -89,9 +100,14 @@ def _merge_all_hits(hits: Iterable[SearchHits]) -> SearchHits:
 
 def basic_search(db: DocumentDB, index: SearchIndex, query: str) -> SearchHits:
     # Like term search, but make value total of all occurrences of terms
+    print("Starting basic search")
     query_terms = list(_str_term_generator(query))
+    print("query terms:", query_terms)
     term_hits = [term_search(db, index, term) for term in query_terms]
-    return _merge_all_hits(term_hits)
+    print("term hits:", term_hits)
+    merged = _merge_all_hits(term_hits)
+    print("merged hits:", merged)
+    return merged
 
 
 def regex_search(db: DocumentDB, index: SearchIndex, regex: str) -> SearchHits:
@@ -102,16 +118,51 @@ def regex_search(db: DocumentDB, index: SearchIndex, regex: str) -> SearchHits:
 
 def to_result(db: DocumentDB, hits: SearchHits) -> SearchResult:
     sorted_hits = sorted(hits.items(), key=lambda item: -item[1])
-    return [(db[document_id], score) for (document_id, score) in sorted_hits]
+    result: SearchResult = []
+    for doc_id, _ in sorted_hits:
+        result.append(db[doc_id])
+    return result
 
 
-if __name__ == "__main__":
-    from itertools import islice
+# TODO: Cache
+def read_search_db() -> DocumentDB:
+    print("Reading search db...")
+    with open(DOCUMENT_DB_PATH) as fp:
+        documents_meta = json.load(fp)
 
-    def take(n, iterable):
-        """Return the first n items of the iterable as a list."""
-        return list(islice(iterable, n))
+    db: DocumentDB = dict()
+    for meta in documents_meta:
+        doc_id = meta.pop("id")
+        db[doc_id] = meta
+    return db
 
-    ind = index(Path("/Users/graham.preston/fac_src/DAAR/project3/documents"))
-    n_items = take(5, ind.items())
-    print(n_items)
+
+# TODO: Cache
+def read_search_index() -> SearchIndex:
+    print("Reading search index...")
+    if os.path.exists(SEARCH_INDEX_PATH):
+        with open(SEARCH_INDEX_PATH) as fp:
+            return json.load(fp)
+    else:
+        print("Indexing...")
+        search_index = index(DOCUMENTS_ROOT)
+        print("Finished indexing, opening and writing...")
+        with open(SEARCH_INDEX_PATH, "w") as fp:
+            json.dump(search_index, fp)
+        return search_index
+
+
+def execute_search(query: str, type: SearchType) -> SearchResult:
+    db = read_search_db()
+    index = read_search_index()
+
+    print("Executing search...")
+    if type == SearchType.BASIC:
+        hits = basic_search(db, index, query)
+        result = to_result(db, hits)
+        print("finalized result:", result)
+        return result
+    if type == SearchType.REGEX:
+        hits = regex_search(db, index, query)
+        return to_result(db, hits)
+    return []
