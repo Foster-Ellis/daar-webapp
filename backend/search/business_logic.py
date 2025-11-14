@@ -166,3 +166,8 @@ def execute_search(query: str, type: SearchType) -> SearchResult:
         hits = regex_search(db, index, query)
         return to_result(db, hits)
     return []
+
+
+def fetch_document(doc_id: DocumentId) -> str:
+    with open(os.path.join(DOCUMENTS_ROOT, f"{doc_id}.txt")) as f:
+        return f.read()

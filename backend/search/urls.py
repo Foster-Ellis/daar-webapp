@@ -21,26 +21,28 @@ from rest_framework import routers, serializers, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .business_logic import execute_search, SearchType
+from .business_logic import execute_search, SearchType, fetch_document
 
 
 @api_view(["POST"])
 def search(request):
     """
-    Perform a normal search query.
+    Perform a search query.
 
     Spec:
-    - Takes JSON: {"query": string}, extra params optional and ignored if unknown
+    - Takes JSON: {"query": string, "type": "basic" | "regex"}, extra params optional and ignored if unknown
     """
     query = request.data["query"]
-    result = execute_search(query, SearchType.BASIC)
+    search_type = request.data.get("type", "basic")
+    result = execute_search(query, SearchType(search_type))
     print("execute_search result:", result)
     return Response(result)
 
 
 @api_view(["GET"])
-def get_document_text(request):
-    return Response("")
+def get_document_text(_request, doc_id):
+    content = fetch_document(doc_id)
+    return Response(content)
 
 
 # Serializers define the API representation.
@@ -62,7 +64,7 @@ router.register(r'users', UserViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("api/basic_search", search),
-    path("api/document_text", get_document_text),
+    path("api/search", search),
+    path("api/document_text/<int:doc_id>", get_document_text),
     path('', include(router.urls)),
 ]

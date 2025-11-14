@@ -21,9 +21,10 @@ export async function search(search_term: string, method: string, ranking: strin
   }
 
   try {
-    const endpoint = method === 'regex' ? 'regex_search' : 'basic_search'
-    const response = await axios.post(`${API_BASE}/${endpoint}`, {
+    const search_type = method === 'regex' ? 'regex' : 'basic'
+    const response = await axios.post(`${API_BASE}/search`, {
       query: search_term,
+      type: search_type
     })
 
     console.log('✅ Received response from backend:', response.data)
