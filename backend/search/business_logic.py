@@ -127,7 +127,7 @@ def to_result(db: DocumentDB, hits: SearchHits) -> SearchResult:
 # TODO: Cache
 def read_search_db() -> DocumentDB:
     print("Reading search db...")
-    with open(DOCUMENT_DB_PATH) as fp:
+    with open(DOCUMENT_DB_PATH, encoding="utf-8") as fp:
         documents_meta = json.load(fp)
 
     db: DocumentDB = dict()
