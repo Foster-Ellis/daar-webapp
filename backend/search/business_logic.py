@@ -71,7 +71,7 @@ def index(documents_root: str) -> SearchIndex:
         print("Indexing file number", i)
         document_id = _document_id_from_filename(fn)
 
-        with open(os.path.join(documents_root, fn)) as f:
+        with open(os.path.join(documents_root, fn), encoding="utf-8") as f:
             for term in _term_generator(f):
                 if _indexable(term):
                     _increment_term_for_document(index, term, document_id)
@@ -141,13 +141,13 @@ def read_search_db() -> DocumentDB:
 def read_search_index() -> SearchIndex:
     print("Reading search index...")
     if os.path.exists(SEARCH_INDEX_PATH):
-        with open(SEARCH_INDEX_PATH) as fp:
+        with open(SEARCH_INDEX_PATH, encoding="utf-8") as fp:
             return json.load(fp)
     else:
         print("Indexing...")
         search_index = index(DOCUMENTS_ROOT)
         print("Finished indexing, opening and writing...")
-        with open(SEARCH_INDEX_PATH, "w") as fp:
+        with open(SEARCH_INDEX_PATH, "w", encoding="utf-8") as fp:
             json.dump(search_index, fp)
         return search_index
 
@@ -169,5 +169,5 @@ def execute_search(query: str, type: SearchType) -> SearchResult:
 
 
 def fetch_document(doc_id: DocumentId) -> str:
-    with open(os.path.join(DOCUMENTS_ROOT, f"{doc_id}.txt")) as f:
+    with open(os.path.join(DOCUMENTS_ROOT, f"{doc_id}.txt"), encoding="utf-8") as f:
         return f.read()
