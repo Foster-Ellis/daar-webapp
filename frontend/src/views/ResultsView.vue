@@ -4,6 +4,7 @@
 
     <!-- CONTROL PANEL -->
     <div class="bg-gray-50 p-4 rounded-xl shadow-md flex flex-wrap gap-4 items-end">
+
       <!-- Search bar -->
       <div>
         <label class="block text-sm text-gray-700 mb-1">Search Query</label>
@@ -64,9 +65,30 @@
           :key="book.id"
           class="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
         >
-          <h3 class="font-semibold text-lg text-gray-800">{{ book.title }}</h3>
-          <p v-if="book.author" class="text-gray-500 text-sm">{{ book.author }}</p>
-          <p v-if="book.snippet" class="text-gray-600 text-sm mt-2">{{ book.snippet }}</p>
+          <!-- COVER IMAGE -->
+          <img
+            v-if="book.cover"
+            :src="book.cover"
+            alt="Book cover"
+            class="w-32 h-48 object-cover rounded-lg mb-3 shadow-sm"
+          />
+
+          <!-- TITLE -->
+          <h3 class="font-semibold text-lg text-gray-800 line-clamp-2">
+            {{ book.title }}
+          </h3>
+
+          <!-- OPTIONAL AUTHOR -->
+          <p v-if="book.author" class="text-gray-500 text-sm">
+            {{ book.author }}
+          </p>
+
+          <!-- OPTIONAL SNIPPET -->
+          <p v-if="book.snippet" class="text-gray-600 text-sm mt-2">
+            {{ book.snippet }}
+          </p>
+
+          <!-- SCORE -->
           <p v-if="book.score" class="text-gray-400 text-xs mt-1">
             Relevance: {{ (book.score * 100).toFixed(1) }}%
           </p>
@@ -76,9 +98,10 @@
       <p v-else class="text-gray-500 italic mt-3">No results found.</p>
     </div>
 
-    <!-- RECOMMENDATION SECTION -->
+    <!-- RECOMMENDATIONS -->
     <div v-if="recs.length > 0" class="mt-8">
       <h2 class="text-xl font-semibold mb-4">Recommended Documents</h2>
+
       <div class="flex flex-wrap gap-3">
         <span
           v-for="rec in recs"
