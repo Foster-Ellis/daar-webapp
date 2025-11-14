@@ -49,13 +49,14 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { search } from '../api/search'
-
+import { useResultsStore } from '../stores/results'
 
 const query = ref('')
 const mode = ref('keyword')
 const ranking = ref('occurrences')
 
 const router = useRouter()
+const resultsStore = useResultsStore()
 
 async function runSearch() {
   if (!query.value.trim()) {
@@ -63,31 +64,40 @@ async function runSearch() {
     return
   }
 
-  console.log('🚀 Sending query from Home:', {
-    Search_term: query.value,
-    method: mode.value,
+  console.log('🔍 [Home] runSearch() START')
+
+  console.log('📤 [Home] Sending to backend:', {
+    query: query.value,
+    mode: mode.value,
     ranking: ranking.value,
   })
 
+  let data
   try {
-    // Perform first backend query
-    const data = await search(query.value, mode.value, ranking.value)
-    console.log('✅ Initial query successful — got', data?.length || data?.results?.length, 'results')
-
-    // Navigate to results page with params + pass data along
-    router.push({
-      path: '/results',
-      query: {
-        s: query.value,
-        m: mode.value,
-        r: ranking.value,
-      },
-      state: { initialResults: data }, // pass data directly via router state
-    })
+    console.log('⏳ [Home] Calling search(...)')
+    data = await search(query.value, mode.value, ranking.value)
+    console.log('📥 [Home] search(...) resolved:', data)
   } catch (err) {
-    console.error('❌ Search failed:', err)
+    console.error('❌ [Home] search(...) threw error:', err)
+    return
   }
+
+  console.log('🧮 [Home] data length:', data?.length || data?.results?.length)
+
+  console.log('💾 [Home] Saving to Pinia store')
+  resultsStore.setResults(data)
+
+  console.log('🧭 [Home] Navigating to /results')
+  router.push({
+    path: '/results',
+    query: {
+      s: query.value,
+      m: mode.value,
+      r: ranking.value,
+    },
+  })
+
+  console.log('🏁 [Home] runSearch() END')
 }
+
 </script>
-
-

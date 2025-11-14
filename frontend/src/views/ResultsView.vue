@@ -93,64 +93,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { search } from '../api/search'
+import { useResultsStore } from '../stores/results'
 
+// URL params
 const route = useRoute()
-const router = useRouter()
-
-// Extract query params
 const s = ref((route.query.s as string) || '')
 const m = ref((route.query.m as string) || 'keyword')
 const r = ref((route.query.r as string) || 'occurrences')
 
-// Reactive data containers
-const results = ref<any[]>([])
+// Store
+const resultsStore = useResultsStore()
+const results = computed(() => resultsStore.results)
 const recs = ref<any[]>([])
 
-// Try to load results passed via router state
-const initialResults: any = router.options.history.state?.initialResults || null
-
-
+// Execute search
 async function runSearch() {
-  if (!String(s.value).trim()) {
-  console.warn('⚠️ Empty search — aborted')
-  return
-  }
+  if (!s.value.trim()) return
 
-  console.log('🚀 Running ResultsView search:', { s: s.value, m: m.value, r: r.value })
-
-  if (initialResults) {
-    console.log('📦 Using results from HomeView')
-    results.value = initialResults.results || initialResults
-    recs.value = initialResults.recommendations || []
-    return
-  }
+  console.log('🚀 Running search from ResultsView', { s: s.value, m: m.value, r: r.value })
 
   try {
     const data = await search(s.value, m.value, r.value)
-    results.value = data.results || data
-    recs.value = data.recommendations || []
-    console.log('✅ Results fetched directly:', results.value.length, 'entries')
+    const docs = data.results || data
+    const recommendations = data.recommendations || []
+
+    resultsStore.setResults(docs)
+    recs.value = recommendations
   } catch (err) {
-    console.error('❌ Search failed:', err)
+    console.error('❌ search error:', err)
   }
-
 }
-  
 
+// Initial load
 onMounted(() => {
-  // If results were passed from HomeView, show them and skip fetching
-  if (initialResults) {
-    console.log('📦 Loaded results passed from HomeView')
-    results.value = initialResults.results || initialResults
-    recs.value = initialResults.recommendations || []
-  } else if (s.value) {
-    // If we have a query string but no results yet, fetch them
-    console.log('🔄 No state results found — fetching directly...')
+  if (results.value.length > 0) {
+    console.log('📦 Loaded results from Pinia store')
+  } else {
+    console.log('🔄 No cached results — querying backend')
     runSearch()
   }
 })
 </script>
-
