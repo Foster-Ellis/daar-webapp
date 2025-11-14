@@ -1,11 +1,11 @@
 import axios from "axios";
 import mockData from '../mock_data/fake_search.json'
 
-// Backend base URL (FastAPI)
+// Backend base URL
 const API_BASE = 'http://127.0.0.1:8000/api'
 
 // Toggle between backend and mock mode
-const useMock = true // set to false when backend is ready
+const useMock = false // set to false when backend is ready
 
 
 

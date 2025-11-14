@@ -36,7 +36,7 @@ def search(request):
     search_type = request.data.get("type", "basic")
     result = execute_search(query, SearchType(search_type))
     print("execute_search result:", result)
-    return Response(result)
+    return Response(result, headers={"Access-Control-Allow-Origin": "*"})
 
 
 @api_view(["GET"])
