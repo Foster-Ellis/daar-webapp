@@ -40,6 +40,11 @@ class SearchType(Enum):
     REGEX = "regex"
 
 
+class SearchRanking(Enum):
+    OCCURRENCES = "occurrences"
+    CLOSENESS = "closeness"
+
+
 def _document_id_from_filename(fn: str) -> int:
     [doc_id, _] = fn.split(".")
     return int(doc_id)
@@ -73,13 +78,14 @@ def _increment_term_for_document(index: SearchIndex, term: Term, document_id: Do
 
 @cache
 def get_tfidf_df() -> pd.DataFrame:
-    text_files = glob.glob(f"{DOCUMENTS_ROOT}/*.txt")
-    text_titles = [Path(text).stem for text in text_files]
+    # text_files = glob.glob(f"{DOCUMENTS_ROOT}/*.txt")
+    # text_titles = [Path(text).stem for text in text_files]
 
-    tfidf_vectorizer = TfidfVectorizer(input='filename', stop_words='english')
-    tfidf_vector = tfidf_vectorizer.fit_transform(text_files)
-    tfidf_df = pd.DataFrame(tfidf_vector.toarray(), index=text_titles, columns=tfidf_vectorizer.get_feature_names_out())
-    return tfidf_df
+    # tfidf_vectorizer = TfidfVectorizer(input='filename', stop_words='english')
+    # tfidf_vector = tfidf_vectorizer.fit_transform(text_files)
+    # tfidf_df = pd.DataFrame(tfidf_vector.toarray(), index=text_titles, columns=tfidf_vectorizer.get_feature_names_out())
+    # return tfidf_df
+    return pd.DataFrame()
 
 
 def index(documents_root: str) -> Tuple[SearchIndex, pd.DataFrame]:
@@ -137,12 +143,18 @@ def regex_search(index: SearchIndex, regex: str) -> SearchHits:
     return _merge_all_hits(regex_hits)
 
 
-def to_result(db: DocumentDB, tfidf_df: pd.DataFrame, hits: SearchHits) -> SearchResult:
-    # sorted_hits = sorted(hits.items(), key=lambda item: -item[1])
-    sorted_hits: List[Tuple[float, DocumentId]] = closeness_centrality_ranking(tfidf_df, hits)
+def to_result(db: DocumentDB, tfidf_df: pd.DataFrame, hits: SearchHits, ranking: SearchRanking) -> SearchResult:
+    print("Converting to result with ranking", ranking, "and hits", hits)
+    if ranking == SearchRanking.OCCURRENCES:
+        sorted_hits = [(score, doc_id) for doc_id, score in sorted(hits.items(), key=lambda item: -item[1])]
+    elif ranking == SearchRanking.CLOSENESS:
+        sorted_hits: List[Tuple[float, DocumentId]] = closeness_centrality_ranking(tfidf_df, hits)
+
+    print("Got sorted hits", sorted_hits)
     result: SearchResult = []
     for _, doc_id in sorted_hits:
         result.append(db[doc_id])
+    print("Final result", result)
     return result
 
 
@@ -181,20 +193,19 @@ def read_search_index() -> Tuple[SearchIndex, pd.DataFrame]:
         return (search_index, tfidf_df)
 
 
-def execute_search(query: str, type: SearchType) -> SearchResult:
+def execute_search(query: str, type: SearchType, ranking: SearchRanking) -> SearchResult:
     db = read_search_db()
     index, tfidf_df = read_search_index()
 
     print("Executing search...")
     if type == SearchType.BASIC:
         hits = basic_search(index, query)
-        result = to_result(db, tfidf_df, hits)
-        print("finalized result:", result)
-        return result
-    if type == SearchType.REGEX:
+    elif type == SearchType.REGEX:
         hits = regex_search(index, query)
-        return to_result(db, tfidf_df, hits)
-    return []
+
+    result = to_result(db, tfidf_df, hits, ranking)
+    print("finalized result:", result)
+    return result
 
 
 def fetch_document(doc_id: DocumentId) -> str:
