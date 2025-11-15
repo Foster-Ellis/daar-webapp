@@ -4,14 +4,21 @@ import json
 
 from enum import Enum
 from dataclasses import dataclass
-from functools import reduce
-from typing import Dict, List, Iterable, Generator, TextIO
+from functools import cache
+from typing import Dict, List, Tuple
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
+import pandas as pd
+import numpy as np
+from pathlib import Path
+import glob
 
 Term = str # normalized: [a-zA-Z]
 DocumentId = int
 
-SearchIndex = Dict[Term, Dict[DocumentId, int]] # term => document id => occurrence count
-
+# SearchIndex = Dict[Term, Dict[DocumentId, int]] # term => document id => occurrence count
+SearchIndex = pd.DataFrame # row = document id, col = term
 
 @dataclass
 class DocumentMeta:
@@ -19,112 +26,86 @@ class DocumentMeta:
     document_id: DocumentId
     cover: str # URL
 
-DocumentDB = Dict[DocumentId, DocumentMeta]
-SearchScore = int
-SearchHits = Dict[DocumentId, SearchScore]
+DocumentDB = Dict[str, DocumentMeta] # should be DocumentId => DocumentMeta, but documents_meta.json stores ids as strings by accident
+SearchScore = np.float64
+# SearchHits = Dict[DocumentId, SearchScore]
+SearchHits = pd.DataFrame # row = document id, col = term, limited rows
 SearchResult = List[DocumentMeta]
 
 SEARCH_INDEX_PATH = "search/search_index.json"
+DATAFRAME_PATH = "search/tfidf_df.csv"
 DOCUMENT_DB_PATH = "webscraper/documents_meta.json"
 DOCUMENTS_ROOT = "webscraper/documents/"
+
+MAX_RESULTS = 50
 
 class SearchType(Enum):
     BASIC = "basic"
     REGEX = "regex"
 
 
-def _document_id_from_filename(fn: str) -> int:
-    [doc_id, _] = fn.split(".")
-    return int(doc_id)
+class SearchRanking(Enum):
+    OCCURRENCES = "occurrences"
+    CLOSENESS = "closeness"
 
 
-def _term_generator(f: TextIO) -> Generator[Term]:
-    for line in f:
-        for term in _str_term_generator(line):
-            yield term
+@cache
+def index(documents_dir: str) -> SearchIndex:
+    text_files = glob.glob(f"{documents_dir}/*.txt")
+    text_titles = [Path(text).stem for text in text_files]
+
+    tfidf_vectorizer = TfidfVectorizer(input='filename', stop_words='english', max_features=100_000)
+    tfidf_vector = tfidf_vectorizer.fit_transform(text_files)
+    tfidf_df = pd.DataFrame(tfidf_vector.toarray(), index=text_titles, columns=tfidf_vectorizer.get_feature_names_out())
+    return tfidf_df
 
 
-def _str_term_generator(s: str) -> Generator[Term]:
-    # Normalize line by turning to lowercase, and removing any punctuation
-    formatted_line = re.sub(r'[^a-z0-9 ]', '', s.lower())
-    for word in formatted_line.split():
-        yield word
+def term_search(index: SearchIndex, terms: List[Term]) -> SearchHits:
+    print("Doing term search with terms", terms)
+    # Cap results
+    hits = index.nlargest(MAX_RESULTS, terms)
+    # Only return rows for which there was actually a hit
+    return hits[hits[terms].T.any()]
 
 
-# TODO: Implement
-def _indexable(term: str) -> bool:
-    return True
-
-
-def _increment_term_for_document(index: SearchIndex, term: Term, document_id: DocumentId) -> None:
-    if term not in index:
-        index[term] = dict()
-    if document_id not in index[term]:
-        index[term][document_id] = 0
-    index[term][document_id] += 1
-
-
-def index(documents_root: str) -> SearchIndex:
-    index: SearchIndex = dict()
-
-    for i, fn in enumerate(os.listdir(documents_root)):
-        print("Indexing file number", i)
-        document_id = _document_id_from_filename(fn)
-
-        with open(os.path.join(documents_root, fn), encoding="utf-8") as f:
-            for term in _term_generator(f):
-                if _indexable(term):
-                    _increment_term_for_document(index, term, document_id)
-
-
-    return index
-
-
-def term_search(db: DocumentDB, index: SearchIndex, term: Term) -> SearchHits:
-    return index[term]
-
-
-def _merge_hits(r1: SearchHits, r2: SearchHits) -> SearchHits:
-    merged = dict(r1)
-    for key, score in r2.items():
-        if key not in merged:
-            merged[key] = score
-        else:
-            merged[key] += score
-    return merged
-
-
-def _merge_all_hits(hits: Iterable[SearchHits]) -> SearchHits:
-    return reduce(lambda agg, hit: _merge_hits(agg, hit), hits)
-
-
-def basic_search(db: DocumentDB, index: SearchIndex, query: str) -> SearchHits:
-    # Like term search, but make value total of all occurrences of terms
+def basic_search(index: SearchIndex, query: str) -> SearchHits:
     print("Starting basic search")
-    query_terms = list(_str_term_generator(query))
-    print("query terms:", query_terms)
-    term_hits = [term_search(db, index, term) for term in query_terms]
-    print("term hits:", term_hits)
-    merged = _merge_all_hits(term_hits)
-    print("merged hits:", merged)
-    return merged
+    vectorizer = CountVectorizer(stop_words="english")
+    analyze = vectorizer.build_analyzer()
+    query_terms = analyze(query)
+    return term_search(index, query_terms)
 
 
-def regex_search(db: DocumentDB, index: SearchIndex, regex: str) -> SearchHits:
+def regex_search(index: SearchIndex, regex: str) -> SearchHits:
     r = re.compile(regex)
-    regex_hits = [term_search(db, index, term) for term in index.keys() if r.match(term)]
-    return _merge_all_hits(regex_hits)
+    matching_terms = [term for term in index.columns if r.match(term)]
+    return term_search(index, matching_terms)
 
 
-def to_result(db: DocumentDB, hits: SearchHits) -> SearchResult:
-    sorted_hits = sorted(hits.items(), key=lambda item: -item[1])
+def to_result(db: DocumentDB, hits: SearchHits, ranking: SearchRanking) -> SearchResult:
+    # IDEA:
+    # - Iterate through hits and take only those with at least some kind of hit on a term (since we take 100 no matter what)
+    # - End up with the term vector for each of those hits
+    # - Run ranking algorithm on those hits
+    #   * IF occurrences: rank by TFIDF total for query terms
+    #   * IF closeness: run closeness algorithm on remaining term vectors
+    # - Get metadata for sorted results and return
     result: SearchResult = []
-    for doc_id, _ in sorted_hits:
-        result.append(db[doc_id])
+
+    print("Converting to result with ranking", ranking, "and hits", hits)
+    if ranking == SearchRanking.OCCURRENCES:
+        for doc_id, _series in hits.iterrows():
+            result.append(db[doc_id])
+    elif ranking == SearchRanking.CLOSENESS:
+        sorted_hits: List[Tuple[float, DocumentId]] = closeness_centrality_ranking(hits)
+        for _, doc_id in sorted_hits:
+            result.append(db[doc_id])
+
+    # print("Final result", result)
     return result
 
 
-# TODO: Cache
+@cache
 def read_search_db() -> DocumentDB:
     print("Reading search db...")
     with open(DOCUMENT_DB_PATH, encoding="utf-8") as fp:
@@ -137,37 +118,66 @@ def read_search_db() -> DocumentDB:
     return db
 
 
-# TODO: Cache
-def read_search_index() -> SearchIndex:
-    print("Reading search index...")
-    if os.path.exists(SEARCH_INDEX_PATH):
-        with open(SEARCH_INDEX_PATH, encoding="utf-8") as fp:
-            return json.load(fp)
-    else:
-        print("Indexing...")
-        search_index = index(DOCUMENTS_ROOT)
-        print("Finished indexing, opening and writing...")
-        with open(SEARCH_INDEX_PATH, "w", encoding="utf-8") as fp:
-            json.dump(search_index, fp)
-        return search_index
-
-
-def execute_search(query: str, type: SearchType) -> SearchResult:
+def execute_search(query: str, type: SearchType, ranking: SearchRanking) -> SearchResult:
     db = read_search_db()
-    index = read_search_index()
+    tfidf_df = index(DOCUMENTS_ROOT)
 
     print("Executing search...")
     if type == SearchType.BASIC:
-        hits = basic_search(db, index, query)
-        result = to_result(db, hits)
-        print("finalized result:", result)
-        return result
-    if type == SearchType.REGEX:
-        hits = regex_search(db, index, query)
-        return to_result(db, hits)
-    return []
+        hits = basic_search(tfidf_df, query)
+    elif type == SearchType.REGEX:
+        hits = regex_search(tfidf_df, query)
+
+    result = to_result(db, hits, ranking)
+    # print("finalized result:", result)
+    return result
 
 
 def fetch_document(doc_id: DocumentId) -> str:
     with open(os.path.join(DOCUMENTS_ROOT, f"{doc_id}.txt"), encoding="utf-8") as f:
         return f.read()
+
+
+def cosine_similarity(vec1: pd.Series, vec2: pd.Series) -> np.float64:
+    """
+    https://medium.com/@whyamit404/what-is-cosine-similarity-and-why-use-numpy-62d409f0661f
+    """
+    dot_product = np.dot(vec1, vec2)
+    magnitude1 = np.linalg.norm(vec1)
+    magnitude2 = np.linalg.norm(vec2)
+    return dot_product / (magnitude1 * magnitude2)
+
+
+def closeness_centrality_ranking(hits: SearchHits) ->  List[Tuple[float, DocumentId]]:
+    """
+    A closeness centrality orders the results by minimial total distance to
+    all other nodes.
+
+    IDEA:
+    - calculate term vector for each result
+    - term vector is term index => TFIDF for each term
+      * means we need a central authority mapping term to vector index
+      * seems we can do this with TFIDFVectorizor
+    - Compute distance between each pair of vectors (pandas should let us do this easy)
+    - Return ordered by min average distance
+
+    Note: This doesn't actually take the query into account, funny enough.
+
+    https://melaniewalsh.github.io/Intro-Cultural-Analytics/05-Text-Analysis/03-TF-IDF-Scikit-Learn.html
+    """
+    print("Running closeness centrality ranking on", len(hits), f"hits ({len(hits)**2} combinations)")
+
+    distance_matrix: Dict[DocumentId, List[float]] = dict()
+    for doc_id_1, series_1 in hits.iterrows():
+        distance_matrix[doc_id_1] = []
+
+        for _doc_id_2, series_2 in hits.iterrows():
+            distance_matrix[doc_id_1].append(cosine_similarity(series_1, series_2))
+
+    print("Got distance matrix")
+    distance_df = pd.DataFrame.from_dict(data=distance_matrix, orient="index")
+    print("Got distance df")
+    ranking = sorted([(-np.sum(distance_series), doc_id) for doc_id, distance_series in distance_df.iterrows()])
+    print("Got ranking (top 10)", ranking[:10])
+
+    return ranking

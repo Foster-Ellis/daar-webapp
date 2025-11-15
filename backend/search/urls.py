@@ -21,7 +21,7 @@ from rest_framework import routers, serializers, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .business_logic import execute_search, SearchType, fetch_document
+from .business_logic import execute_search, SearchType, SearchRanking, fetch_document
 
 
 @api_view(["POST"])
@@ -34,8 +34,9 @@ def search(request):
     """
     query = request.data["query"]
     search_type = request.data.get("type", "basic")
-    result = execute_search(query, SearchType(search_type))
-    print("execute_search result:", result)
+    ranking = request.data.get("ranking", "occurrences")
+    result = execute_search(query, SearchType(search_type), SearchRanking(ranking))
+    # print("execute_search result:", result)
     return Response(result)
 
 

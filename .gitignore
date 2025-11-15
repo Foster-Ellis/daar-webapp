@@ -20,6 +20,7 @@ documents/
 *.tmp
 **/search_index.json
 **/documents_meta.json
+**/tfidf_df.csv
 
 # Editor + OS clutter
 .vscode/
