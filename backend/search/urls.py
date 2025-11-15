@@ -21,7 +21,7 @@ from rest_framework import routers, serializers, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .business_logic import execute_search, SearchType, SearchRanking, fetch_document
+from .business_logic import execute_search, SearchType, SearchRanking, fetch_document, get_recommendations_for_query
 
 
 @api_view(["POST"])
@@ -39,6 +39,16 @@ def search(request):
     # print("execute_search result:", result)
     return Response(result)
 
+@api_view(["POST"])
+def recommendations(request):
+    """
+    Recommend documents based on query similarity (Jaccard on token sets).
+    Takes JSON: {"query": string}
+    Returns: list of recommended documents
+    """
+    query = request.data.get("query", "")
+    recs = get_recommendations_for_query(query)
+    return Response(recs)
 
 @api_view(["GET"])
 def get_document_text(_request, doc_id):
@@ -66,6 +76,7 @@ router.register(r'users', UserViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/search", search),
+    path("api/recommend", recommendations),
     path("api/document_text/<int:doc_id>", get_document_text),
     path('', include(router.urls)),
 ]
