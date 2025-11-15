@@ -1,160 +1,257 @@
-<template>
-  <div class="p-6 space-y-6">
-    <h1 class="text-2xl font-bold">📚 Search Results</h1>
-
-    <!-- CONTROL PANEL -->
-    <div class="bg-gray-50 p-4 rounded-xl shadow-md flex flex-wrap gap-4 items-end">
-
-      <!-- Search bar -->
-      <div>
-        <label class="block text-sm text-gray-700 mb-1">Search Query</label>
-        <input
-          v-model="s"
-          type="text"
-          class="border border-gray-300 px-3 py-2 rounded-md w-72"
-          placeholder="Enter keyword or RegEx..."
-          @keyup.enter="runSearch"
-        />
-      </div>
-
-      <!-- Search Mode -->
-      <div>
-        <label class="block text-sm text-gray-700 mb-1">Search Mode</label>
-        <select
-          v-model="m"
-          class="border border-gray-300 px-3 py-2 rounded-md bg-white"
-        >
-          <option value="keyword">Keyword</option>
-          <option value="regex">RegEx</option>
-        </select>
-      </div>
-
-      <!-- Ranking -->
-      <div>
-        <label class="block text-sm text-gray-700 mb-1">Ranking Method</label>
-        <select
-          v-model="r"
-          class="border border-gray-300 px-3 py-2 rounded-md bg-white"
-        >
-          <option value="occurrences">By occurrences (default)</option>
-          <option value="closeness">Closeness centrality</option>
-        </select>
-      </div>
-
-      <!-- Run Search -->
-      <button
-        @click="runSearch"
-        class="bg-green-600 text-white px-5 py-2 rounded-md hover:bg-green-700 transition"
-      >
-        Search
-      </button>
-    </div>
-
-    <!-- RESULTS GRID -->
-    <div>
-      <h2 class="text-xl font-semibold text-gray-800 mb-2">Results</h2>
-
-      <div
-        v-if="results.length > 0"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
-        <div
-          v-for="book in results"
-          :key="book.id"
-          class="p-4 bg-white rounded-xl shadow hover:shadow-lg transition"
-        >
-          <!-- COVER IMAGE -->
-          <img
-            v-if="book.cover"
-            :src="book.cover"
-            alt="Book cover"
-            class="w-32 h-48 object-cover rounded-lg mb-3 shadow-sm"
-          />
-
-          <!-- TITLE -->
-          <h3 class="font-semibold text-lg text-gray-800 line-clamp-2">
-            {{ book.title }}
-          </h3>
-
-          <!-- OPTIONAL AUTHOR -->
-          <p v-if="book.author" class="text-gray-500 text-sm">
-            {{ book.author }}
-          </p>
-
-          <!-- OPTIONAL SNIPPET -->
-          <p v-if="book.snippet" class="text-gray-600 text-sm mt-2">
-            {{ book.snippet }}
-          </p>
-
-          <!-- SCORE -->
-          <p v-if="book.score" class="text-gray-400 text-xs mt-1">
-            Relevance: {{ (book.score * 100).toFixed(1) }}%
-          </p>
-        </div>
-      </div>
-
-      <p v-else class="text-gray-500 italic mt-3">No results found.</p>
-    </div>
-
-    <!-- RECOMMENDATIONS -->
-    <div v-if="recs.length > 0" class="mt-8">
-      <h2 class="text-xl font-semibold mb-4">Recommended Documents</h2>
-
-      <div class="flex flex-wrap gap-3">
-        <span
-          v-for="rec in recs"
-          :key="rec.id || rec"
-          class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm"
-        >
-          {{ rec.title || rec }}
-        </span>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { search } from '../api/search'
-import { useResultsStore } from '../stores/results'
+import { ref, onMounted, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 
-// URL params
 const route = useRoute()
-const s = ref((route.query.s as string) || '')
-const m = ref((route.query.m as string) || 'keyword')
-const r = ref((route.query.r as string) || 'occurrences')
+const router = useRouter()
 
-// Store
-const resultsStore = useResultsStore()
-const results = computed(() => resultsStore.results)
-const recs = ref<any[]>([])
+// Controlled fields
+const s = ref(String(route.query.s || ""))
+const m = ref(String(route.query.m || "regex"))
+const r = ref(String(route.query.r || "occurrences"))
 
-// Execute search
+const loading = ref(false)
+const results = ref<any[]>([])
+const recommendations = ref<any[]>([])
+
 async function runSearch() {
   if (!s.value.trim()) return
 
-  console.log('🚀 Running search from ResultsView', { s: s.value, m: m.value, r: r.value })
+  loading.value = true
+  results.value = []
+  recommendations.value = []
 
-  try {
-    const data = await search(s.value, m.value, r.value)
-    const docs = data.results || data
-    const recommendations = data.recommendations || []
+  // SEARCH
+  const resp = await fetch("http://localhost:8000/api/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: s.value,
+      type: m.value,
+      ranking: r.value
+    })
+  })
+  results.value = await resp.json()
 
-    resultsStore.setResults(docs)
-    recs.value = recommendations
-  } catch (err) {
-    console.error('❌ search error:', err)
-  }
+  // RECOMMEND
+  const rec = await fetch("http://localhost:8000/api/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: s.value
+    })
+  })
+  recommendations.value = await rec.json()
+
+  loading.value = false
 }
 
-// Initial load
-onMounted(() => {
-  if (results.value.length > 0) {
-    console.log('📦 Loaded results from Pinia store')
-  } else {
-    console.log('🔄 No cached results — querying backend')
-    runSearch()
-  }
+function updateURLandSearch() {
+  router.replace({
+    path: "/results",
+    query: { s: s.value, m: m.value, r: r.value }
+  })
+  runSearch()
+}
+
+onMounted(runSearch)
+
+watch(() => route.query, () => {
+  s.value = String(route.query.s || "")
+  m.value = String(route.query.m || "regex")
+  r.value = String(route.query.r || "occurrences")
+  runSearch()
 })
 </script>
+
+<template>
+  <div class="page-container">
+
+    <!-- CONTROL PANEL -->
+    <div class="control-panel">
+
+      <div class="field wide">
+        <label>Query</label>
+        <input
+          v-model="s"
+          @keyup.enter="updateURLandSearch"
+          placeholder="Enter search term…"
+        />
+      </div>
+
+      <div class="field">
+        <label>Mode</label>
+        <select v-model="m">
+          <option value="basic">Keyword</option>
+          <option value="regex">Regex</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Ranking</label>
+        <select v-model="r">
+          <option value="occurrences">Occurrences</option>
+          <option value="closeness">Closeness</option>
+        </select>
+      </div>
+
+      <div class="field button-field">
+        <label class="invisible">Search</label>
+        <button @click="updateURLandSearch">Search</button>
+      </div>
+
+    </div>
+
+    <!-- LOADING -->
+    <div v-if="loading" class="loading">Loading…</div>
+
+    <!-- RESULTS -->
+    <div v-if="!loading" class="section">
+      <h2 class="section-title">Results</h2>
+
+      <div class="book-row">
+        <div
+          class="book-card"
+          v-for="doc in results"
+          :key="doc.document_id"
+        >
+          <img
+            :src="doc.cover || '/default-cover.png'"
+            @error="(e:any)=> e.target.src='/default-cover.png'"
+            class="book-cover"
+          />
+          <h3 class="book-title">{{ doc.title }}</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECOMMENDATIONS -->
+    <div v-if="!loading && recommendations.length" class="section">
+      <h2 class="section-title">Recommended for You</h2>
+
+      <div class="book-row-single">
+        <div
+          class="book-card"
+          v-for="doc in recommendations"
+          :key="doc.document_id"
+        >
+          <img
+            :src="doc.cover || '/default-cover.png'"
+            @error="(e:any)=> e.target.src='/default-cover.png'"
+            class="book-cover"
+          />
+          <h3 class="book-title">{{ doc.title }}</h3>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<style>
+/* PAGE CONTAINER */
+.page-container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* CONTROL PANEL */
+.control-panel {
+  background: #f8f8f8;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field.wide {
+  grid-column: span 2;
+}
+
+label {
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+input, select {
+  border: 1px solid #ccc;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+button {
+  padding: 10px 16px;
+  background: #38a169;
+  color: white;
+  border-radius: 8px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2f855a;
+}
+
+.section {
+  margin-top: 40px;
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+/* BOOK CARDS */
+.book-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, 1fr);
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.book-row-single {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.book-card {
+  width: 120px;
+  background: white;
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  scroll-snap-align: start;
+}
+
+.book-cover {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.book-title {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 2.3rem;
+}
+</style>
+
