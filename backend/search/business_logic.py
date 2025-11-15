@@ -43,11 +43,21 @@ def _term_generator(f: TextIO) -> Generator[Term]:
         for term in _str_term_generator(line):
             yield term
 
-
+STOP_WORDS = {
+    "a", "an", "the",
+    "and", "or", "but",
+    "to", "in", "on", "of", "for", "by", "at", "as",
+    "is", "it", "be",
+    "he", "she", "they", "we",
+    "that", "this", "these", "those"
+}
 def _str_term_generator(s: str) -> Generator[Term]:
     # Normalize line by turning to lowercase, and removing any punctuation
     formatted_line = re.sub(r'[^a-z0-9 ]', '', s.lower())
     for word in formatted_line.split():
+        
+        if len(word) < 3 or word in STOP_WORDS: # Skip words of length < 3
+            continue
         yield word
 
 
