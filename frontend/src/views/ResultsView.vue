@@ -37,9 +37,7 @@
           class="border border-gray-300 px-3 py-2 rounded-md bg-white"
         >
           <option value="occurrences">By occurrences (default)</option>
-          <option value="pagerank">PageRank (Jaccard graph)</option>
           <option value="closeness">Closeness centrality</option>
-          <option value="betweenness">Betweenness centrality</option>
         </select>
       </div>
 
