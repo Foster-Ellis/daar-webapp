@@ -39,6 +39,9 @@ DOCUMENTS_ROOT = "webscraper/documents/"
 
 MAX_RESULTS = 50
 
+DOC_TOKENS = {}
+
+
 class SearchType(Enum):
     BASIC = "basic"
     REGEX = "regex"
@@ -117,6 +120,28 @@ def read_search_db() -> DocumentDB:
         db[doc_id] = meta
     return db
 
+@cache
+def load_doc_tokens():
+    global DOC_TOKENS
+    
+    vectorizer = CountVectorizer(stop_words="english")
+    analyze = vectorizer.build_analyzer()
+
+    txt_files = glob.glob(f"{DOCUMENTS_ROOT}/*.txt")
+    for path in txt_files:
+        doc_id = Path(path).stem
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        DOC_TOKENS[doc_id] = set(analyze(text))
+
+    return DOC_TOKENS
+
+
+# initialize cache of doc tokens for later use by calling method directly during module import
+# otherwise, we would have to call it every time hence using @cahce is important
+load_doc_tokens() 
+
+
 
 def execute_search(query: str, type: SearchType, ranking: SearchRanking) -> SearchResult:
     db = read_search_db()
@@ -181,3 +206,32 @@ def closeness_centrality_ranking(hits: SearchHits) ->  List[Tuple[float, Documen
     print("Got ranking (top 10)", ranking[:10])
 
     return ranking
+
+
+
+def get_recommendations_for_query(query: str):
+    load_doc_tokens()  # ensure DOC_TOKENS is populated
+
+    vectorizer = CountVectorizer(stop_words="english")
+    analyze = vectorizer.build_analyzer()
+    
+    query_tokens = set(analyze(query))
+
+    scores = []
+    for doc_id, tokens in DOC_TOKENS.items():
+        inter = len(query_tokens & tokens)
+        union = len(query_tokens | tokens)
+        if union == 0:
+            continue
+        
+        j = inter / union
+        if j > 0:
+            scores.append((doc_id, j))
+
+    scores.sort(key=lambda x: x[1], reverse=True)
+    top = [doc_id for doc_id, _ in scores[:5]]
+
+    db = read_search_db()
+    recommendations = [ db[doc_id] for doc_id in top ]
+
+    return recommendations
