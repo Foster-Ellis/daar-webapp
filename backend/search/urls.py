@@ -36,7 +36,7 @@ def search(request):
     search_type = request.data.get("type", "basic")
     ranking = request.data.get("ranking", "occurrences")
     result = execute_search(query, SearchType(search_type), SearchRanking(ranking))
-    print("execute_search result:", result)
+    # print("execute_search result:", result)
     return Response(result)
 
 
