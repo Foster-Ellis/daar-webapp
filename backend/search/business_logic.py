@@ -122,6 +122,22 @@ def read_search_db() -> DocumentDB:
 
 @cache
 def load_doc_tokens():
+    """
+    Preload and cache token-sets for all document .txt files.
+
+    IDEA:
+    - Use CountVectorizer's analyzer to create a consistent tokenizer
+      shared by both indexing and query-recommendation logic.
+    - For each document in DOCUMENTS_ROOT:
+        * Read the raw text
+        * Tokenize it into a set of unique tokens
+        * Store it in global DOC_TOKENS under its document ID
+    - Cache the whole mapping so that repeated calls are effectively free.
+
+    Notes:
+    - Token data is stable unless the documents change on disk.
+    - Using @cache ensures the expensive I/O + tokenization only runs once.
+    """
     global DOC_TOKENS
     
     vectorizer = CountVectorizer(stop_words="english")
@@ -139,7 +155,7 @@ def load_doc_tokens():
 
 # initialize cache of doc tokens for later use by calling method directly during module import
 # otherwise, we would have to call it every time hence using @cahce is important
-load_doc_tokens() 
+#load_doc_tokens() 
 
 
 
@@ -210,6 +226,17 @@ def closeness_centrality_ranking(hits: SearchHits) ->  List[Tuple[float, Documen
 
 
 def get_recommendations_for_query(query: str):
+    """
+    Compute simple Jaccard-based recommendations for a given query.
+
+    IDEA:
+    - Tokenize the input query using a standard analyzer (CountVectorizer)
+    - Compare the query token-set with each document's token-set
+    - Use Jaccard similarity:  |A ∩ B| / |A ∪ B|
+    - Keep only documents with non-zero similarity
+    - Return the top N highest-scoring docs
+    
+    """
     load_doc_tokens()  # ensure DOC_TOKENS is populated
 
     vectorizer = CountVectorizer(stop_words="english")
@@ -229,7 +256,7 @@ def get_recommendations_for_query(query: str):
             scores.append((doc_id, j))
 
     scores.sort(key=lambda x: x[1], reverse=True)
-    top = [doc_id for doc_id, _ in scores[:5]]
+    top = [doc_id for doc_id, _ in scores[:8]]
 
     db = read_search_db()
     recommendations = [ db[doc_id] for doc_id in top ]
