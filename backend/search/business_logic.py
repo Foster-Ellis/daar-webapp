@@ -54,13 +54,17 @@ class SearchRanking(Enum):
 
 @cache
 def index(documents_dir: str) -> SearchIndex:
+    print("Indexing...")
     text_files = glob.glob(f"{documents_dir}/*.txt")
     text_titles = [Path(text).stem for text in text_files]
 
+    print("Building TF-IDF matrix...")
     tfidf_vectorizer = TfidfVectorizer(input='filename', stop_words='english', max_features=100_000)
     tfidf_vector = tfidf_vectorizer.fit_transform(text_files)
     tfidf_df = pd.DataFrame(tfidf_vector.toarray(), index=text_titles, columns=tfidf_vectorizer.get_feature_names_out())
     return tfidf_df
+
+tfidf_df = index(DOCUMENTS_ROOT)
 
 
 def term_search(index: SearchIndex, terms: List[Term]) -> SearchHits:
@@ -114,11 +118,14 @@ def read_search_db() -> DocumentDB:
     with open(DOCUMENT_DB_PATH, encoding="utf-8") as fp:
         documents_meta = json.load(fp)
 
+    print("Converting to dict...")
     db: DocumentDB = dict()
     for meta in documents_meta:
         doc_id = meta.pop("id")
         db[doc_id] = meta
+    print("finished reading search db")
     return db
+read_search_db()
 
 @cache
 def load_doc_tokens():
@@ -140,28 +147,30 @@ def load_doc_tokens():
     """
     global DOC_TOKENS
     
+    print("Loading document tokens...")
     vectorizer = CountVectorizer(stop_words="english")
     analyze = vectorizer.build_analyzer()
 
+    print("Analyzing documents...")
     txt_files = glob.glob(f"{DOCUMENTS_ROOT}/*.txt")
     for path in txt_files:
         doc_id = Path(path).stem
         with open(path, encoding="utf-8") as f:
             text = f.read()
         DOC_TOKENS[doc_id] = set(analyze(text))
-
+    print("Done loading document tokens")
     return DOC_TOKENS
 
 
 # initialize cache of doc tokens for later use by calling method directly during module import
 # otherwise, we would have to call it every time hence using @cahce is important
-#load_doc_tokens() 
+load_doc_tokens() 
 
 
 
 def execute_search(query: str, type: SearchType, ranking: SearchRanking) -> SearchResult:
     db = read_search_db()
-    tfidf_df = index(DOCUMENTS_ROOT)
+    
 
     print("Executing search...")
     if type == SearchType.BASIC:

@@ -21,8 +21,11 @@ async function runSearch() {
   results.value = []
   recommendations.value = []
 
+  // Dynamically use the correct hostname (LAN IP or custom hostname)
+  const API = `http://${window.location.hostname}:8000/api`
+
   // SEARCH
-  const resp = await fetch("http://localhost:8000/api/search", {
+  const resp = await fetch(`${API}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -34,7 +37,7 @@ async function runSearch() {
   results.value = await resp.json()
 
   // RECOMMEND
-  const rec = await fetch("http://localhost:8000/api/recommend", {
+  const rec = await fetch(`${API}/recommend`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -45,6 +48,7 @@ async function runSearch() {
 
   loading.value = false
 }
+
 
 function updateURLandSearch() {
   router.replace({
