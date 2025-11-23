@@ -79,7 +79,7 @@ def basic_search(index: SearchIndex, query: str) -> SearchHits:
     print("Starting basic search")
     vectorizer = CountVectorizer(stop_words="english")
     analyze = vectorizer.build_analyzer()
-    query_terms = analyze(query)
+    query_terms = [term for term in analyze(query) if term in index]
     return term_search(index, query_terms)
 
 
@@ -146,7 +146,7 @@ def load_doc_tokens():
     - Using @cache ensures the expensive I/O + tokenization only runs once.
     """
     global DOC_TOKENS
-    
+
     print("Loading document tokens...")
     vectorizer = CountVectorizer(stop_words="english")
     analyze = vectorizer.build_analyzer()
@@ -164,13 +164,13 @@ def load_doc_tokens():
 
 # initialize cache of doc tokens for later use by calling method directly during module import
 # otherwise, we would have to call it every time hence using @cahce is important
-load_doc_tokens() 
+load_doc_tokens()
 
 
 
 def execute_search(query: str, type: SearchType, ranking: SearchRanking) -> SearchResult:
     db = read_search_db()
-    
+
 
     print("Executing search...")
     if type == SearchType.BASIC:
@@ -244,13 +244,13 @@ def get_recommendations_for_query(query: str):
     - Use Jaccard similarity:  |A ∩ B| / |A ∪ B|
     - Keep only documents with non-zero similarity
     - Return the top N highest-scoring docs
-    
+
     """
     load_doc_tokens()  # ensure DOC_TOKENS is populated
 
     vectorizer = CountVectorizer(stop_words="english")
     analyze = vectorizer.build_analyzer()
-    
+
     query_tokens = set(analyze(query))
 
     scores = []
@@ -259,7 +259,7 @@ def get_recommendations_for_query(query: str):
         union = len(query_tokens | tokens)
         if union == 0:
             continue
-        
+
         j = inter / union
         if j > 0:
             scores.append((doc_id, j))
