@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "django-cors-headers>=4.9.0",
+    "djangorestframework>=3.16.1",
     "pandas>=2.3.3",
     "requests>=2.32.5",
     "scikit-learn>=1.7.2",

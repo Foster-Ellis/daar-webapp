@@ -14,6 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import time
+from tracemalloc import start
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.urls import include, path
@@ -32,11 +34,13 @@ def search(request):
     Spec:
     - Takes JSON: {"query": string, "type": "basic" | "regex"}, extra params optional and ignored if unknown
     """
+    start_time = time.time()
     query = request.data["query"]
     search_type = request.data.get("type", "basic")
     ranking = request.data.get("ranking", "occurrences")
     result = execute_search(query, SearchType(search_type), SearchRanking(ranking))
     # print("execute_search result:", result)
+    print("Search took", time.time() - start_time, "seconds")
     return Response(result)
 
 @api_view(["POST"])

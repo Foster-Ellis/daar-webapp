@@ -6,6 +6,7 @@ from enum import Enum
 from dataclasses import dataclass
 from functools import cache
 from typing import Dict, List, Tuple
+import time
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
@@ -40,6 +41,10 @@ DOCUMENTS_ROOT = "webscraper/documents/"
 MAX_RESULTS = 50
 
 DOC_TOKENS = {}
+
+# BENCHMARK config
+BENCHMARK_LOGGING = True
+BENCHMARK_LOGFILE = "logs/bench_log.txt"
 
 
 class SearchType(Enum):
@@ -99,7 +104,7 @@ def to_result(db: DocumentDB, hits: SearchHits, ranking: SearchRanking) -> Searc
     # - Get metadata for sorted results and return
     result: SearchResult = []
 
-    print("Converting to result with ranking", ranking, "and hits", hits)
+    #print("Converting to result with ranking", ranking, "and hits", hits)
     if ranking == SearchRanking.OCCURRENCES:
         for doc_id, _series in hits.iterrows():
             result.append(db[doc_id])
@@ -171,15 +176,44 @@ load_doc_tokens()
 def execute_search(query: str, type: SearchType, ranking: SearchRanking) -> SearchResult:
     db = read_search_db()
 
+    # Start measuring internal algorithm time
+    start_time = time.time()
 
-    print("Executing search...")
+    # --- Core logic ---
     if type == SearchType.BASIC:
         hits = basic_search(tfidf_df, query)
     elif type == SearchType.REGEX:
         hits = regex_search(tfidf_df, query)
 
     result = to_result(db, hits, ranking)
-    # print("finalized result:", result)
+    # ------------------
+
+    elapsed = time.time() - start_time
+
+    # ------------------ INTERNAL LOGGING ------------------
+    if BENCHMARK_LOGGING:
+        try:
+            # build absolute path relative to business_logic.py
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            log_path = os.path.join(current_dir, BENCHMARK_LOGFILE)
+
+            # ensure folder exists
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+            # write benchmark-style log line
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(
+                    f"[{time.strftime('%Y-%m-%d %H:%M:%S')}]  "
+                    f"query='{query}'  "
+                    f"type='{type.value}'  "
+                    f"ranking='{ranking.value}'  "
+                    f"internal_time={elapsed:.6f}s\n"
+                )
+
+        except Exception as e:
+            print("INTERNAL_LOGGING ERROR:", e)
+    # ------------------------------------------------------
+
     return result
 
 
