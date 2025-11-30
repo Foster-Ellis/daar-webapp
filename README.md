@@ -2,6 +2,8 @@
 
 This repository contains the frontend and backend code for the document search app project for DAAR.
 
+The project report is found in REPORT.pdf.
+
 ## Usage
 
 The backend is written in Python, and was set up using uv. Installation instructions can be found [here](https://docs.astral.sh/uv/getting-started/installation/).
