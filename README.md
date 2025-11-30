@@ -2,7 +2,7 @@
 
 This repository contains the frontend and backend code for the document search app project for DAAR.
 
-The project report is found in REPORT.pdf.
+The project report is found in REPORT.pdf. The project repository is found at https://github.com/Foster-Ellis/daar-webapp.
 
 ## Usage
 
